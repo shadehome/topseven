@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Branding Editor Pro</title>
+
+<style>
+body{
+    font-family:Arial;
+    background:#eef0f4;
+    margin:0;
+    padding:20px;
+}
+
+.app{
+    max-width:1200px;
+    margin:auto;
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+
+.header{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:15px;
+}
+
+input,button{
+    padding:10px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+button{
+    cursor:pointer;
+    background:#111;
+    color:#fff;
+}
+
+canvas{
+    border:1px solid #ddd;
+    width:100%;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div class="header">
+<h2>🎨 Branding Editor Pro (Final 4:5 Version)</h2>
+</div>
+
+<div class="controls">
+
+<input id="imageUrl" placeholder="Paste product image URL" style="width:300px;">
+<button onclick="loadImage()">Load</button>
+
+<input type="file" id="logoInput">
+<label>Logo</label>
+
+<input type="file" id="iconsInput" multiple>
+<label>Icons</label>
+
+<input type="range" id="logoSize" min="10" max="80" value="30">
+<label>Logo Size</label>
+
+<input type="range" id="iconSize" min="5" max="30" value="12">
+<label>Icon Size</label>
+
+<input type="text" id="productName" value="PRODUCT NAME">
+<input type="text" id="offerText" value="SPECIAL OFFER">
+
+<button onclick="downloadImage()">Download</button>
+
+</div>
+
+<canvas id="canvas"></canvas>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let productImg = null;
+let logoImg = null;
+let icons = [];
+
+let logoSize = 0.3;
+let iconSize = 0.12;
+
+/* ---------------- 4:5 CANVAS ---------------- */
+
+function setCanvasRatio(){
+
+canvas.width = 1000;
+canvas.height = 1250; // 4:5 ratio
+
+}
+
+/* ---------------- LOAD IMAGE ---------------- */
+
+function loadImage(){
+
+const url = document.getElementById("imageUrl").value;
+
+if(!url){
+alert("Paste image URL");
+return;
+}
+
+const img = new Image();
+img.crossOrigin = "anonymous";
+
+img.onload = () => {
+
+productImg = img;
+
+// FIX 4:5 CANVAS
+setCanvasRatio();
+
+draw();
+
+};
+
+img.src = url;
+}
+
+/* ---------------- LOGO ---------------- */
+
+document.getElementById("logoInput")
+.addEventListener("change",function(){
+
+const file = this.files[0];
+const reader = new FileReader();
+
+reader.onload = e => {
+const img = new Image();
+img.onload = () => {
+logoImg = img;
+draw();
+};
+img.src = e.target.result;
+};
+
+reader.readAsDataURL(file);
+
+});
+
+/* ---------------- ICONS ---------------- */
+
+document.getElementById("iconsInput")
+.addEventListener("change",function(){
+
+icons = [];
+
+Array.from(this.files).forEach(file => {
+
+const reader = new FileReader();
+
+reader.onload = e => {
+const img = new Image();
+img.onload = () => {
+icons.push(img);
+draw();
+};
+img.src = e.target.result;
+};
+
+reader.readAsDataURL(file);
+
+});
+
+});
+
+/* ---------------- CONTROLS ---------------- */
+
+document.getElementById("logoSize")
+.addEventListener("input",function(){
+logoSize = this.value / 100;
+draw();
+});
+
+document.getElementById("iconSize")
+.addEventListener("input",function(){
+iconSize = this.value / 100;
+draw();
+});
+
+/* ---------------- DRAW ---------------- */
+
+function draw(){
+
+if(!productImg) return;
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+/* ---------------- CENTER CROP BACKGROUND ---------------- */
+
+const canvasRatio = canvas.width / canvas.height;
+const imgRatio = productImg.width / productImg.height;
+
+let drawWidth, drawHeight, offsetX, offsetY;
+
+if(imgRatio > canvasRatio){
+
+drawHeight = canvas.height;
+drawWidth = productImg.width * (canvas.height / productImg.height);
+offsetX = -(drawWidth - canvas.width) / 2;
+offsetY = 0;
+
+} else {
+
+drawWidth = canvas.width;
+drawHeight = productImg.height * (canvas.width / productImg.width);
+offsetX = 0;
+offsetY = -(drawHeight - canvas.height) / 2;
+
+}
+
+ctx.drawImage(productImg, offsetX, offsetY, drawWidth, drawHeight);
+
+const padding = canvas.width * 0.03;
+
+/* ---------------- SPECIAL OFFER (TOP LEFT) ---------------- */
+
+const offer =
+document.getElementById("offerText").value || "SPECIAL OFFER";
+
+ctx.font = "bold 18px Arial";
+
+let offerW = ctx.measureText(offer).width;
+
+let x = 40;
+let y = 50;
+
+ctx.fillStyle = "#7863ff";
+roundRect(ctx,x,y,offerW+30,40,10);
+ctx.fill();
+
+ctx.fillStyle = "#fff";
+ctx.fillText(offer,x+15,y+28);
+
+/* ---------------- PRODUCT NAME (TRANSPARENT TEXT) ---------------- */
+
+const productName =
+document.getElementById("productName").value || "";
+
+ctx.font = "bold 55px Arial";
+ctx.fillStyle = "#00cccc";
+ctx.shadowColor = "rgba(0,0,0,0.6)";
+ctx.shadowBlur = 6;
+
+ctx.fillText(productName, 40, 160);
+
+ctx.shadowBlur = 0;
+
+/* ---------------- LOGO (BOTTOM RIGHT) ---------------- */
+
+if(logoImg){
+
+const w = canvas.width * logoSize;
+const h = w * (logoImg.height/logoImg.width);
+
+ctx.drawImage(
+logoImg,
+canvas.width - w - padding,
+canvas.height - h - padding,
+w,
+h
+);
+
+}
+
+/* ---------------- ICONS (BOTTOM LEFT) ---------------- */
+
+if(icons.length){
+
+const size = canvas.width * iconSize;
+const y = canvas.height - size - padding;
+
+icons.forEach((img,i)=>{
+ctx.drawImage(img,padding+i*(size+10),y,size,size);
+});
+
+}
+
+}
+
+/* ---------------- ROUND RECT ---------------- */
+
+function roundRect(ctx,x,y,w,h,r){
+
+ctx.beginPath();
+ctx.moveTo(x+r,y);
+ctx.lineTo(x+w-r,y);
+ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+ctx.lineTo(x+w,y+h-r);
+ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+ctx.lineTo(x+r,y+h);
+ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+ctx.lineTo(x,y+r);
+ctx.quadraticCurveTo(x,y,x+r,y);
+ctx.closePath();
+
+}
+
+/* ---------------- DOWNLOAD ---------------- */
+
+function downloadImage(){
+
+if(!productImg){
+alert("Load image first");
+return;
+}
+
+const link = document.createElement("a");
+link.download = "topsevenmv.png";
+link.href = canvas.toDataURL("image/png");
+link.click();
+
+}
+
+</script>
+
+</body>
+</html>
