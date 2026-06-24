@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Topseven Branding Editor Pro</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,sans-serif;
+    background:#eef0f4;
+    margin:0;
+    padding:20px;
+}
+
+.app{
+    max-width:1400px;
+    margin:auto;
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+
+.header{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+input[type="text"]{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+
+input[type="range"]{
+    width:120px;
+}
+
+button{
+    padding:10px 15px;
+    border:none;
+    border-radius:6px;
+    background:#111;
+    color:#fff;
+    cursor:pointer;
+}
+
+button:hover{
+    opacity:.9;
+}
+
+.canvas-wrap{
+    text-align:center;
+}
+
+canvas{
+    width:500px;
+    max-width:100%;
+    border:1px solid #ddd;
+    cursor:grab;
+    background:#ffffff;
+}
+
+.label{
+    font-size:13px;
+    font-weight:bold;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<div class="header">
+<h2>🎨 Topseven.mv Branding Editor Pro</h2>
+<p>4:5 Social Image Designer</p>
+</div>
+
+<div class="controls">
+
+<input
+type="text"
+id="imageUrl"
+placeholder="Paste Product Image URL"
+style="width:320px;"
+>
+
+<button onclick="loadImage()">
+Load Image
+</button>
+
+<input type="file" id="logoInput">
+
+<input type="file" id="iconsInput" multiple>
+
+<div class="label">Logo Size</div>
+<input type="range" id="logoSize" min="5" max="80" value="30">
+
+<div class="label">Icon Size</div>
+<input type="range" id="iconSize" min="5" max="30" value="12">
+
+<div class="label">Background Zoom</div>
+<input type="range" id="bgScale" min="50" max="300" value="100">
+
+<input
+type="text"
+id="productName"
+value="PRODUCT NAME"
+placeholder="Product Name"
+>
+
+<input
+type="color"
+id="textColor"
+value="#ffffff"
+>
+
+<input
+type="text"
+id="offerText"
+value="SPECIAL OFFER"
+placeholder="Offer Text"
+>
+
+<button onclick="downloadImage()">
+Download PNG
+</button>
+
+</div>
+
+<div class="canvas-wrap">
+<canvas id="canvas"></canvas>
+</div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let productImg = null;
+let logoImg = null;
+let icons = [];
+
+let logoSize = 0.30;
+let iconSize = 0.12;
+let bgScale = 1;
+
+let imgX = 0;
+let imgY = 0;
+
+let dragging = false;
+let lastX = 0;
+let lastY = 0;
+
+/* CANVAS SIZE */
+
+function setCanvas(){
+
+    canvas.width = 1000;
+    canvas.height = 1250;
+
+}
+
+/* LOAD IMAGE */
+
+function loadImage(){
+
+    const url =
+    document.getElementById("imageUrl").value.trim();
+
+    if(!url){
+
+        alert("Paste image URL");
+        return;
+
+    }
+
+    const img = new Image();
+
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+
+        productImg = img;
+
+        setCanvas();
+
+        const canvasRatio =
+        canvas.width / canvas.height;
+
+        const imgRatio =
+        img.width / img.height;
+
+        let baseW;
+        let baseH;
+
+        if(imgRatio > canvasRatio){
+
+            baseH = canvas.height;
+
+            baseW =
+            img.width *
+            (canvas.height / img.height);
+
+        }else{
+
+            baseW = canvas.width;
+
+            baseH =
+            img.height *
+            (canvas.width / img.width);
+
+        }
+
+        imgX =
+        (canvas.width - baseW) / 2;
+
+        imgY =
+        (canvas.height - baseH) / 2;
+
+        draw();
+
+    };
+
+    img.onerror = () => {
+        alert("Unable to load image.");
+    };
+
+    img.src = url;
+
+}
+
+/* LOGO */
+
+document
+.getElementById("logoInput")
+.addEventListener("change",function(){
+
+    const file = this.files[0];
+
+    if(!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = e => {
+
+        const img = new Image();
+
+        img.onload = () => {
+
+            logoImg = img;
+            draw();
+
+        };
+
+        img.src = e.target.result;
+
+    };
+
+    reader.readAsDataURL(file);
+
+});
+
+/* ICONS */
+
+document
+.getElementById("iconsInput")
+.addEventListener("change",function(){
+
+    icons = [];
+
+    Array.from(this.files)
+    .forEach(file=>{
+
+        const reader = new FileReader();
+
+        reader.onload = e => {
+
+            const img = new Image();
+
+            img.onload = () => {
+
+                icons.push(img);
+                draw();
+
+            };
+
+            img.src = e.target.result;
+
+        };
+
+        reader.readAsDataURL(file);
+
+    });
+
+});
+
+/* CONTROLS */
+
+document
+.getElementById("logoSize")
+.addEventListener("input",function(){
+
+    logoSize =
+    this.value / 100;
+
+    draw();
+
+});
+
+document
+.getElementById("iconSize")
+.addEventListener("input",function(){
+
+    iconSize =
+    this.value / 100;
+
+    draw();
+
+});
+
+document
+.getElementById("bgScale")
+.addEventListener("input",function(){
+
+    bgScale =
+    this.value / 100;
+
+    draw();
+
+});
+
+document
+.getElementById("textColor")
+.addEventListener("input",draw);
+
+document
+.getElementById("productName")
+.addEventListener("input",draw);
+
+document
+.getElementById("offerText")
+.addEventListener("input",draw);
+
+/* DRAG BACKGROUND */
+
+canvas.addEventListener("mousedown",(e)=>{
+
+    dragging = true;
+
+    lastX = e.offsetX;
+    lastY = e.offsetY;
+
+    canvas.style.cursor = "grabbing";
+
+});
+
+canvas.addEventListener("mouseup",()=>{
+
+    dragging = false;
+
+    canvas.style.cursor = "grab";
+
+});
+
+canvas.addEventListener("mouseleave",()=>{
+
+    dragging = false;
+
+    canvas.style.cursor = "grab";
+
+});
+
+canvas.addEventListener("mousemove",(e)=>{
+
+    if(!dragging) return;
+
+    imgX += e.offsetX - lastX;
+    imgY += e.offsetY - lastY;
+
+    lastX = e.offsetX;
+    lastY = e.offsetY;
+
+    draw();
+
+});
+
+/* DRAW */
+
+function draw(){
+
+    if(!productImg) return;
+
+    /* WHITE BACKGROUND */
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const canvasRatio =
+    canvas.width /
+    canvas.height;
+
+    const imgRatio =
+    productImg.width /
+    productImg.height;
+
+    let baseW;
+    let baseH;
+
+    if(imgRatio > canvasRatio){
+
+        baseH = canvas.height;
+
+        baseW =
+        productImg.width *
+        (canvas.height /
+        productImg.height);
+
+    }else{
+
+        baseW = canvas.width;
+
+        baseH =
+        productImg.height *
+        (canvas.width /
+        productImg.width);
+
+    }
+
+    const drawW =
+    baseW * bgScale;
+
+    const drawH =
+    baseH * bgScale;
+
+    ctx.drawImage(
+        productImg,
+        imgX,
+        imgY,
+        drawW,
+        drawH
+    );
+
+    const padding =
+    canvas.width * 0.03;
+
+    /* OFFER */
+
+    const offer =
+    document.getElementById("offerText").value;
+
+    ctx.font =
+    "bold 20px Arial";
+
+    const offerW =
+    ctx.measureText(offer).width;
+
+    ctx.fillStyle =
+    "#ff3b30";
+
+    roundRect(
+        ctx,
+        40,
+        40,
+        offerW + 30,
+        42,
+        10
+    );
+
+    ctx.fill();
+
+    ctx.fillStyle =
+    "#fff";
+
+    ctx.fillText(
+        offer,
+        55,
+        68
+    );
+
+    /* PRODUCT NAME */
+
+    const productName =
+    document.getElementById("productName").value;
+
+    const textColor =
+    document.getElementById("textColor").value;
+
+    ctx.font =
+    "bold 55px Arial";
+
+    ctx.fillStyle =
+    textColor;
+
+    ctx.shadowColor =
+    "rgba(0,0,0,.6)";
+
+    ctx.shadowBlur = 8;
+
+    ctx.fillText(
+        productName,
+        40,
+        160
+    );
+
+    ctx.shadowBlur = 0;
+
+    /* LOGO */
+
+    if(logoImg){
+
+        const w =
+        canvas.width *
+        logoSize;
+
+        const h =
+        w *
+        (logoImg.height /
+        logoImg.width);
+
+        ctx.drawImage(
+            logoImg,
+            canvas.width - w - padding,
+            canvas.height - h - padding,
+            w,
+            h
+        );
+
+    }
+
+    /* ICONS */
+
+    if(icons.length){
+
+        const size =
+        canvas.width *
+        iconSize;
+
+        const y =
+        canvas.height -
+        size -
+        padding;
+
+        icons.forEach((img,index)=>{
+
+            ctx.drawImage(
+                img,
+                padding + index * (size + 10),
+                y,
+                size,
+                size
+            );
+
+        });
+
+    }
+
+}
+
+/* ROUNDED RECT */
+
+function roundRect(ctx,x,y,w,h,r){
+
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+
+}
+
+/* DOWNLOAD */
+
+function downloadImage(){
+
+    if(!productImg){
+
+        alert("Load image first");
+        return;
+
+    }
+
+    const link =
+    document.createElement("a");
+
+    link.download =
+    "branding-editor-pro.png";
+
+    link.href =
+    canvas.toDataURL("image/png");
+
+    link.click();
+
+}
+
+setCanvas();
+
+</script>
+
+</body>
+</html>
